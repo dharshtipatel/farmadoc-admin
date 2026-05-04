@@ -117,7 +117,12 @@ export default function RevenueChart() {
             />
 
             <Tooltip
-              formatter={(value: number) => [`£${value * 1000}`, "Revenue"]}
+              formatter={(value: any) => {
+                if (typeof value === "number") {
+                  return [`£${value * 1000}`, "Revenue"];
+                }
+                return ["", "Revenue"];
+              }}
             />
 
             <Area
