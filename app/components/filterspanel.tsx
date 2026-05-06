@@ -199,7 +199,7 @@ export default function FiltersModal({ open, onClose, onApply }: Props) {
               max={1000}
               valueMin={spentMin}
               valueMax={spentMax}
-              prefix="EUR "
+              prefix="€ "
               onChange={(mn, mx) => {
                 setSpentMin(mn);
                 setSpentMax(mx);

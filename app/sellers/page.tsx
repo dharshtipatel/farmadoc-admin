@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
-import SellerFiltersPanel from "../components/sellers/SellerFiltersPanel";
+import { useRouter } from "next/navigation";
 import SellerActionMenu from "../components/sellers/SellerActionMenu";
 import ExportDropdown from "../components/exportdropdown";
 import AddSellerDrawer from "@/app/components/sellers/AddSellerDrawer";
 import ImportSellersModal from "../components/sellers/ImportSeller";
 import SellerBulkActionModal from "../components/sellers/SellerBulkActionModal";
+import DataTable, { Column } from "../components/DataTable";
+import { useState, useRef } from "react";
 
 type SellerStatus = "Active" | "Inactive" | "Suspended";
 type FeatureTag = "Showroom" | "Service" | "Pharmacy";
@@ -73,101 +74,125 @@ const IndeterminateCheckbox = ({
 };
 
 export default function SellersManagement() {
-  const [search, setSearch]               = useState("");
-  const [sortKey, setSortKey]             = useState<SortKey | null>(null);
-  const [sortDir, setSortDir]             = useState<SortDir>("asc");
-  const [page, setPage]                   = useState(1);
-  const [pageSize, setPageSize]           = useState(12);
-  const [pageSizeInput, setPageSizeInput] = useState("12");
-  const [selected, setSelected]           = useState<Set<number>>(new Set());
-  const [openMenu, setOpenMenu]           = useState<number | null>(null);
-  const [actionOpen, setActionOpen]       = useState(false);
-  const [filtersOpen, setFiltersOpen]     = useState(false);
+  const router = useRouter();
   const [addSellerOpen, setAddSellerOpen] = useState(false);
-  const [importOpen, setImportOpen]       = useState(false);
-  const [importMode, setImportMode]       = useState<"seller" | "service" | "product">("seller");
-  const actionRef                         = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (actionRef.current && !actionRef.current.contains(e.target as Node)) {
-        setActionOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("asc"); }
-    setPage(1);
-  };
-
-  const filtered = useMemo(() => {
-    let data = [...SELLERS];
-    if (search) {
-      const q = search.toLowerCase();
-      data = data.filter((s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.location.toLowerCase().includes(q)
-      );
-    }
-    if (sortKey) {
-      data.sort((a, b) => {
-        if (sortKey === "orders") return sortDir === "asc" ? a.orders - b.orders : b.orders - a.orders;
-        return sortDir === "asc"
-          ? String(a[sortKey]).localeCompare(String(b[sortKey]))
-          : String(b[sortKey]).localeCompare(String(a[sortKey]));
-      });
-    }
-    return data;
-  }, [search, sortKey, sortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage   = Math.min(page, totalPages);
-  const pageData   = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const pageIds    = pageData.map((s) => s.id);
-
-  const allPageSelected  = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-  const somePageSelected = pageIds.some((id) => selected.has(id));
-
-  const toggleAll = () => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allPageSelected) pageIds.forEach((id) => next.delete(id));
-      else pageIds.forEach((id) => next.add(id));
-      return next;
-    });
-  };
-
-  const toggleRow = (id: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const getPageNumbers = (): (number | "...")[] => {
-    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    const pages: (number | "...")[] = [1];
-    if (safePage > 3) pages.push("...");
-    const start = Math.max(2, safePage - 1);
-    const end   = Math.min(totalPages - 1, safePage + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (safePage < totalPages - 2) pages.push("...");
-    pages.push(totalPages);
-    return pages;
-  };
-
+  const [importOpen, setImportOpen] = useState(false);
+  const [importMode, setImportMode] = useState<"seller" | "service" | "product">("seller");
   const [bulkAction, setBulkAction] = useState<"upgrade" | "inactive" | "suspend" | "downgrade" | "active" | "reactivate" | null>(null);
+  const [openMenu, setOpenMenu] = useState<number | null>(null);
+  const [bulkActionOpen, setBulkActionOpen] = useState(false);
+const bulkActionRef = useRef<HTMLDivElement>(null);
 
+  const columns: Column<Seller>[] = [
+    {
+      key: "name",
+      label: "Seller",
+      sortable: true,
+      render: (_, seller) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-[#E8EAED]">
+            <img
+              src={seller.img}
+              alt={seller.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.style.backgroundColor = "#6366F1";
+                  parent.style.display = "flex";
+                  parent.style.alignItems = "center";
+                  parent.style.justifyContent = "center";
+                  parent.innerHTML = `<span style="color:white;font-size:11px;font-weight:700">${seller.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}</span>`;
+                }
+              }}
+            />
+          </div>
+          <div>
+            <p className="text-[13px] font-medium text-[#21272A]">{seller.name}</p>
+            {seller.isPremium && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
+                  fill="#F59E0B" stroke="#F59E0B" strokeWidth="1">
+                  <circle cx="12" cy="12" r="10"/>
+                </svg>
+                <span className="text-[10px] font-medium text-[#F59E0B]">Premium</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "location",
+      label: "Location",
+      sortable: true,
+      render: (value) => (
+        <p className="text-[13px] text-[#6B6F72] leading-snug line-clamp-2">{value}</p>
+      ),
+      width: "180px",
+    },
+    {
+      key: "email",
+      label: "Contact",
+      render: (_, seller) => (
+        <>
+          <a href={`mailto:${seller.email}`} className="text-[13px] text-[#1192E8] hover:underline block">{seller.email}</a>
+          <span className="text-[12px] text-[#1192E8] block mt-0.5">{seller.phone}</span>
+        </>
+      ),
+    },
+    {
+      key: "features",
+      label: "Features",
+      render: (_, seller) => (
+        <div className="flex flex-wrap gap-1.5">
+          {seller.features.map((f) => (
+            <span key={f} className="px-2 py-0.5 rounded-md text-[11px] font-medium"
+              style={{ color: featureColors[f].text, backgroundColor: featureColors[f].bg }}>
+              {f}
+            </span>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "joinedOn",
+      label: "Joined on",
+      sortable: true,
+      render: (value) => (
+        <span className="text-[13px] text-[#6B6F72]">{value}</span>
+      ),
+    },
+    {
+      key: "orders",
+      label: "Orders",
+      sortable: true,
+      render: (value) => (
+        <span className="text-[13px] text-[#6B6F72]">{value}</span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (value: SellerStatus) => (
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: statusConfig[value].dot }} />
+          <span className="text-[13px] font-medium"
+            style={{ color: statusConfig[value].text }}>
+            {value}
+          </span>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <>
-      {/* ── Modals outside root div so fixed positioning works correctly ── */}
+      {/* ── Modals ── */}
       <AddSellerDrawer
         open={addSellerOpen}
         onClose={() => setAddSellerOpen(false)}
@@ -177,9 +202,17 @@ export default function SellersManagement() {
         mode={importMode}
         onClose={() => setImportOpen(false)}
       />
+      <SellerBulkActionModal
+        open={bulkAction !== null}
+        actionType={bulkAction}
+        onClose={() => setBulkAction(null)}
+        onConfirm={(type, reasons, note) => {
+          console.log("Action confirmed:", type, reasons, note);
+          setBulkAction(null);
+        }}
+      />
 
-      <div className="w-full font-inter" onClick={() => setOpenMenu(null)}>
-
+      <div className="w-full font-inter">
         {/* ── Page Title + Actions ── */}
         <div className="flex items-center justify-between mb-5">
           <div>
@@ -215,398 +248,172 @@ export default function SellersManagement() {
           </div>
         </div>
 
-        {/* ── Table Card ── */}
-        <div className="bg-white border border-[#D6DADD] rounded-2xl overflow-hidden">
-
-          {/* ── Toolbar ── */}
-          {selected.size > 0 ? (
-
-            /* Bulk Action Bar */
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#D6DADD] gap-4 bg-[#F8FAFF]">
-              <div className="relative w-56">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8AAAC]"
-                  xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search here..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="w-full pl-9 pr-3 py-2 text-[13px] border border-[#D6DADD] rounded-lg outline-none focus:border-[#1192E8] text-[#21272A] placeholder-[#A8AAAC] bg-white"
+        {/* ── Data Table ── */}
+        <DataTable<Seller>
+          columns={columns}
+          data={SELLERS}
+          rowKey={(seller) => seller.id}
+          searchFields={["name", "email", "location"]}
+          searchPlaceholder="Search sellers..."
+          renderRowActions={(seller) => (
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setOpenMenu(openMenu === seller.id ? null : seller.id)}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#6B6F72] transition-colors text-lg"
+              >
+                ⋮
+              </button>
+              {openMenu === seller.id && (
+                <SellerActionMenu
+                  open={true}
+                  status={seller.status}
+                  onClose={() => setOpenMenu(null)}
+                  onViewDetails={() => {
+                    setOpenMenu(null);
+                    router.push(`/sellers/${seller.id}`);
+                  }}
+                  onEditDetails={() => { setOpenMenu(null); console.log("Edit", seller.id); }}
+                  onUpgradeShowroom={() => { setOpenMenu(null); setBulkAction("upgrade"); }}
+                  onDowngradePharmacy={() => { setOpenMenu(null); setBulkAction("downgrade"); }}
+                  onMarkInactive={() => { setOpenMenu(null); setBulkAction("inactive"); }}
+                  onMarkActive={() => { setOpenMenu(null); setBulkAction("active"); }}
+                  onSuspend={() => { setOpenMenu(null); setBulkAction("suspend"); }}
+                  onReactivate={() => { setOpenMenu(null); setBulkAction("reactivate"); }}
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setImportMode("service"); setImportOpen(true); }}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#21272A] border border-[#D6DADD] rounded-lg hover:bg-gray-50 transition-colors bg-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="16 3 21 3 21 8"/>
-                    <line x1="4" y1="20" x2="21" y2="3"/>
-                    <polyline points="21 16 21 21 16 21"/>
-                    <line x1="15" y1="15" x2="21" y2="21"/>
-                  </svg>
-                  Import Services
-                </button>
-                <button
-                  onClick={() => { setImportMode("product"); setImportOpen(true); }}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#21272A] border border-[#D6DADD] rounded-lg hover:bg-gray-50 transition-colors bg-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="16 3 21 3 21 8"/>
-                    <line x1="4" y1="20" x2="21" y2="3"/>
-                    <polyline points="21 16 21 21 16 21"/>
-                    <line x1="15" y1="15" x2="21" y2="21"/>
-                  </svg>
-                  Import Products
-                </button>
-                <div className="relative" ref={actionRef}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setActionOpen((prev) => !prev); }}
-                    className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#1192E8] border border-[#1192E8] rounded-lg hover:bg-blue-50 transition-colors bg-white"
-                  >
-                    Action
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-                      fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9"/>
-                    </svg>
-                  </button>
-                  {actionOpen && (
-                    <div className="absolute left-0 top-10 z-20 bg-white border border-[#D6DADD] rounded-xl shadow-lg py-1.5 min-w-[180px]">
-                      <button
-                        onClick={() => { setActionOpen(false); setBulkAction("upgrade"); }}
-                        className="w-full text-left px-4 py-2.5 text-[13px] text-[#21272A] hover:bg-gray-50 transition-colors flex items-center gap-2.5"
-                        >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                            fill="none" stroke="#6B6F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                            <polyline points="9 22 9 12 15 12 15 22"/>
-                        </svg>
-                        <span>Upgrade to Showroom</span>
-                        </button>
-                      <div className="mx-3 border-t border-[#F0F2F4]" />
-                      <button
-                        onClick={() => { setActionOpen(false); setBulkAction("inactive"); }}
-                        className="w-full text-left px-4 py-2.5 text-[13px] text-[#21272A] hover:bg-gray-50 transition-colors flex items-center gap-2.5"
-                        >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                            fill="none" stroke="#6B6F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="10" y1="15" x2="10" y2="9"/>
-                            <line x1="14" y1="15" x2="14" y2="9"/>
-                        </svg>
-                        <span>Mark Inactive</span>
-                        </button>
-                      <div className="mx-3 border-t border-[#F0F2F4]" />
-                      <button
-                        onClick={() => { setActionOpen(false); setBulkAction("suspend"); }}
-                        className="w-full text-left px-4 py-2.5 text-[13px] font-medium text-[#DA1E28] hover:bg-red-50 transition-colors flex items-center gap-2.5"
-                        >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                            fill="none" stroke="#DA1E28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/>
-                            <line x1="9" y1="9" x2="15" y2="15"/>
-                            <line x1="15" y1="9" x2="9" y2="15"/>
-                        </svg>
-                        <span>Suspend Seller</span>
-                        </button>
-                    </div>
-                  )}
-                </div>
-                <button className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#1192E8] border border-[#1192E8] rounded-lg hover:bg-blue-50 transition-colors bg-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Export Selection
-                </button>
-                <button
-                  onClick={() => setSelected(new Set())}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#6B6F72] transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-          ) : (
-
-            /* Normal Search + Filter Bar */
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#D6DADD] gap-4">
-              <div className="relative w-56">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8AAAC]"
-                  xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search here..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); setSelected(new Set()); }}
-                  className="w-full pl-9 pr-3 py-2 text-[13px] border border-[#D6DADD] rounded-lg outline-none focus:border-[#1192E8] text-[#21272A] placeholder-[#A8AAAC] bg-white"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFiltersOpen((p) => !p); }}
-                    className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#6B6F72] border border-[#D6DADD] rounded-lg hover:bg-gray-50 transition-colors bg-white"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-                      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                    </svg>
-                    Filters
-                  </button>
-                  <SellerFiltersPanel
-                    open={filtersOpen}
-                    onClose={() => setFiltersOpen(false)}
-                    onApply={(filters) => {
-                      console.log("Applied filters:", filters);
-                      setFiltersOpen(false);
-                    }}
-                  />
-                </div>
-                <div className="relative">
-                  <ExportDropdown />
-                </div>
-              </div>
+              )}
             </div>
           )}
+          renderBulkActionBar={(selectedCount, clearSelection) => (
+  <div className="flex items-center justify-between px-4 py-3 border-b border-[#D6DADD] bg-[#F8FAFF]">
+    {/* Left: count */}
+    <div className="flex items-center gap-2.5">
+      <div className="w-5 h-5 rounded-full bg-[#1192E8] flex items-center justify-center flex-shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
+          fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+      <span className="text-[13px] font-medium text-[#21272A]">
+        {String(selectedCount).padStart(2, "0")} Selection{selectedCount > 1 ? "s" : ""}
+      </span>
+    </div>
 
-          <SellerBulkActionModal
-            open={bulkAction !== null}
-            actionType={bulkAction}
-            onClose={() => setBulkAction(null)}
-            onConfirm={(type, reasons, note) => {
-              console.log("Action confirmed:", type, reasons, note);
-              setBulkAction(null);
-            }}
-          />
+    {/* Right: action buttons */}
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => { setImportMode("service"); setImportOpen(true); }}
+        className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#21272A] border border-[#D6DADD] rounded-lg hover:bg-gray-50 transition-colors bg-white"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="16 3 21 3 21 8"/>
+          <line x1="4" y1="20" x2="21" y2="3"/>
+          <polyline points="21 16 21 21 16 21"/>
+          <line x1="15" y1="15" x2="21" y2="21"/>
+        </svg>
+        Import Services
+      </button>
 
-          {/* ── Table ── */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[#F0F6FF] border-b border-[#D6DADD]">
-                  <th className="w-11 px-4 py-3">
-                    <IndeterminateCheckbox
-                      checked={allPageSelected}
-                      indeterminate={!allPageSelected && somePageSelected}
-                      onChange={toggleAll}
-                    />
-                  </th>
-                  <th onClick={() => handleSort("name")} className="px-4 py-3 text-left cursor-pointer select-none whitespace-nowrap">
-                    <span className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">
-                      Seller <SortIcon active={sortKey === "name"} dir={sortDir} />
-                    </span>
-                  </th>
-                  <th onClick={() => handleSort("location")} className="px-4 py-3 text-left cursor-pointer select-none whitespace-nowrap">
-                    <span className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">
-                      Location <SortIcon active={sortKey === "location"} dir={sortDir} />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    <span className="text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">Contact</span>
-                  </th>
-                  <th className="px-4 py-3 text-left whitespace-nowrap">
-                    <span className="text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">Features</span>
-                  </th>
-                  <th onClick={() => handleSort("joinedOn")} className="px-4 py-3 text-left cursor-pointer select-none whitespace-nowrap">
-                    <span className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">
-                      Joined on <SortIcon active={sortKey === "joinedOn"} dir={sortDir} />
-                    </span>
-                  </th>
-                  <th onClick={() => handleSort("orders")} className="px-4 py-3 text-left cursor-pointer select-none whitespace-nowrap">
-                    <span className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">
-                      Orders <SortIcon active={sortKey === "orders"} dir={sortDir} />
-                    </span>
-                  </th>
-                  <th onClick={() => handleSort("status")} className="px-4 py-3 text-left cursor-pointer select-none whitespace-nowrap">
-                    <span className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide">
-                      Status <SortIcon active={sortKey === "status"} dir={sortDir} />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-[#6B6F72] uppercase tracking-wide whitespace-nowrap">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageData.map((seller) => (
-                  <tr
-                    key={seller.id}
-                    className={`border-b border-[#D6DADD] last:border-b-0 transition-colors ${
-                      selected.has(seller.id) ? "bg-blue-50" : "hover:bg-blue-50/30"
-                    }`}
-                  >
-                    <td className="px-4 py-3 w-11">
-                      <input type="checkbox" checked={selected.has(seller.id)}
-                        onChange={() => toggleRow(seller.id)}
-                        className="w-[15px] h-[15px] cursor-pointer accent-blue-500" />
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-[#E8EAED]">
-                          <img
-                            src={seller.img}
-                            alt={seller.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.currentTarget;
-                              target.style.display = "none";
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.style.backgroundColor = "#6366F1";
-                                parent.style.display = "flex";
-                                parent.style.alignItems = "center";
-                                parent.style.justifyContent = "center";
-                                parent.innerHTML = `<span style="color:white;font-size:11px;font-weight:700">${seller.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}</span>`;
-                              }
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-medium text-[#21272A]">{seller.name}</p>
-                          {seller.isPremium && (
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
-                                fill="#F59E0B" stroke="#F59E0B" strokeWidth="1">
-                                <circle cx="12" cy="12" r="10"/>
-                              </svg>
-                              <span className="text-[10px] font-medium text-[#F59E0B]">Premium</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3" style={{ maxWidth: "180px" }}>
-                      <p className="text-[13px] text-[#6B6F72] leading-snug line-clamp-2">{seller.location}</p>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <a href={`mailto:${seller.email}`} className="text-[13px] text-[#1192E8] hover:underline block">{seller.email}</a>
-                      <span className="text-[12px] text-[#1192E8] block mt-0.5">{seller.phone}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1.5">
-                        {seller.features.map((f) => (
-                          <span key={f} className="px-2 py-0.5 rounded-md text-[11px] font-medium"
-                            style={{ color: featureColors[f].text, backgroundColor: featureColors[f].bg }}>
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-[13px] text-[#6B6F72]">{seller.joinedOn}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-[13px] text-[#6B6F72]">{seller.orders}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: statusConfig[seller.status].dot }} />
-                        <span className="text-[13px] font-medium"
-                          style={{ color: statusConfig[seller.status].text }}>
-                          {seller.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 relative" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setOpenMenu(openMenu === seller.id ? null : seller.id)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#6B6F72] transition-colors text-lg"
-                      >
-                        ⋮
-                      </button>
-                      <SellerActionMenu
-  open={openMenu === seller.id}
-  status={seller.status}
-  onClose={() => setOpenMenu(null)}
-  onViewDetails={() => { setOpenMenu(null); console.log("View", seller.id); }}
-  onEditDetails={() => { setOpenMenu(null); console.log("Edit", seller.id); }}
-  onUpgradeShowroom={() => { setOpenMenu(null); setBulkAction("upgrade"); }}
-  onDowngradePharmacy={() => { setOpenMenu(null); setBulkAction("downgrade"); }}
-  onMarkInactive={() => { setOpenMenu(null); setBulkAction("inactive"); }}
-  onMarkActive={() => { setOpenMenu(null); setBulkAction("active"); }}
-  onSuspend={() => { setOpenMenu(null); setBulkAction("suspend"); }}
-  onReactivate={() => { setOpenMenu(null); setBulkAction("reactivate"); }}
-/>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <button
+        onClick={() => { setImportMode("product"); setImportOpen(true); }}
+        className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#21272A] border border-[#D6DADD] rounded-lg hover:bg-gray-50 transition-colors bg-white"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="16 3 21 3 21 8"/>
+          <line x1="4" y1="20" x2="21" y2="3"/>
+          <polyline points="21 16 21 21 16 21"/>
+          <line x1="15" y1="15" x2="21" y2="21"/>
+        </svg>
+        Import Products
+      </button>
 
-          {/* ── Pagination ── */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-[#D6DADD] flex-wrap gap-3">
-            <div className="flex items-center gap-2 text-[12px] text-[#6B6F72]">
-              <span>Page Entries</span>
-              <div className="flex items-center border border-[#D6DADD] rounded-lg overflow-hidden">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={pageSizeInput}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (raw === "" || /^\d+$/.test(raw)) {
-                      setPageSizeInput(raw);
-                      const val = parseInt(raw);
-                      if (!isNaN(val) && val >= 1 && val <= 100) { setPageSize(val); setPage(1); }
-                    }
-                  }}
-                  onBlur={() => {
-                    const val = parseInt(pageSizeInput);
-                    if (isNaN(val) || val < 1) setPageSizeInput(String(pageSize));
-                  }}
-                  className="w-12 px-2 py-1.5 text-[12px] text-[#21272A] text-center outline-none bg-white"
-                />
-                <div className="flex flex-col border-l border-[#D6DADD]">
-                  <button onClick={() => { const n = pageSize + 1; if (n <= 100) { setPageSize(n); setPageSizeInput(String(n)); setPage(1); } }}
-                    className="px-1.5 py-0.5 hover:bg-gray-100 text-[7px] text-[#6B6F72]">▲</button>
-                  <button onClick={() => { const n = pageSize - 1; if (n >= 1) { setPageSize(n); setPageSizeInput(String(n)); setPage(1); } }}
-                    className="px-1.5 py-0.5 hover:bg-gray-100 text-[7px] text-[#6B6F72] border-t border-[#D6DADD]">▼</button>
-                </div>
-              </div>
-              <span className="text-[#A8AAAC]">
-                {filtered.length === 0 ? "0" : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filtered.length)}`} of {filtered.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}
-                className="w-7 h-7 flex items-center justify-center rounded border border-[#D6DADD] text-[#6B6F72] hover:bg-gray-50 disabled:opacity-40 transition-colors text-sm">‹</button>
-              {getPageNumbers().map((p, i) =>
-                p === "..." ? (
-                  <span key={`e-${i}`} className="text-[#6B6F72] text-[12px] px-1">…</span>
-                ) : (
-                  <button key={p} onClick={() => setPage(p as number)}
-                    className="w-7 h-7 flex items-center justify-center rounded text-[12px] transition-colors"
-                    style={{
-                      backgroundColor: safePage === p ? "#1192E8" : "transparent",
-                      color:           safePage === p ? "#fff"     : "#6B6F72",
-                      border:          safePage === p ? "none"     : "1px solid #D6DADD",
-                    }}>
-                    {p}
-                  </button>
-                )
-              )}
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                className="w-7 h-7 flex items-center justify-center rounded border border-[#D6DADD] text-[#6B6F72] hover:bg-gray-50 disabled:opacity-40 transition-colors text-sm">›</button>
-            </div>
-          </div>
+      <div className="relative" ref={bulkActionRef}>
+        <button
+            onClick={() => setBulkActionOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#1192E8] border border-[#1192E8] rounded-lg hover:bg-blue-50 transition-colors bg-white"
+        >
+            Action
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        </button>
+
+        {bulkActionOpen && (
+        <div className="absolute right-0 top-10 z-20 bg-white border border-[#D6DADD] rounded-xl shadow-lg py-1.5 min-w-[180px]">
+
+            {/* Upgrade to Showroom */}
+            <button
+            onClick={() => { setBulkActionOpen(false); setBulkAction("upgrade"); }}
+            className="w-full text-left px-4 py-2.5 text-[13px] text-[#21272A] hover:bg-gray-50 transition-colors flex items-center gap-2.5"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                fill="none" stroke="#6B6F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/>
+            </svg>
+            Upgrade to Showroom
+            </button>
+
+            <div className="mx-3 border-t border-[#F0F2F4]" />
+
+            {/* Mark as Inactive */}
+            <button
+            onClick={() => { setBulkActionOpen(false); setBulkAction("inactive"); }}
+            className="w-full text-left px-4 py-2.5 text-[13px] text-[#21272A] hover:bg-gray-50 transition-colors flex items-center gap-2.5"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                fill="none" stroke="#6B6F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            Mark Inactive
+            </button>
+
+            <div className="mx-3 border-t border-[#F0F2F4]" />
+
+            {/* Suspend Seller */}
+            <button
+            onClick={() => { setBulkActionOpen(false); setBulkAction("suspend"); }}
+            className="w-full text-left px-4 py-2.5 text-[13px] text-[#DA1E28] hover:bg-red-50 transition-colors flex items-center gap-2.5"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                fill="none" stroke="#DA1E28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+            Suspend Seller
+            </button>
 
         </div>
+        )}
+        </div>
+
+      <ExportDropdown />
+
+      {/* Clear selection */}
+      <button
+        onClick={clearSelection}
+        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#6B6F72] transition-colors"
+        title="Clear selection"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+)}
+          customFilter={(seller, query) => {
+            const q = query.toLowerCase();
+            return (
+              seller.name.toLowerCase().includes(q) ||
+              seller.email.toLowerCase().includes(q) ||
+              seller.location.toLowerCase().includes(q)
+            );
+          }}
+        />
       </div>
     </>
   );
