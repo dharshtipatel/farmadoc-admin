@@ -10,12 +10,11 @@ const menu = [
   { name: "Sellers", href: "/sellers", image: "/images/Sellers.svg" },
   { name: "Pharmacies Req", href: "/pharmacy-requests", image: "/images/PharmaciesReq.svg", badge: true },
   { name: "Orders", href: "/orders", image: "/images/Orders.svg" },
-  { name: "Inventory", href: "/inventory", image: "/images/Inventory.svg" },
-  { name: "Services", href: "/services", image: "/images/Services.svg" },
+  { name: "Master Inventory", href: "/inventory", image: "/images/Inventory.svg" },
+  { name: "Services Inventory", href: "/services", image: "/images/Services.svg" },
   { name: "Categories", href: "/categories", image: "/images/Categories.svg" },
   { name: "Offers & Pricing", href: "/offers", image: "/images/OffersPricing.svg" },
-  { name: "Transactions", href: "/transactions", image: "/images/Transactions.svg" },
-  { name: "Support Tickets", href: "/tickets", image: "/images/SupportTickets.svg" },
+  { name: "AI Chat Bot", href: "/transactions", image: "/images/Transactions.svg" },
   { name: "Settings", href: "/settings", image: "/images/Settings.svg" },
 ];
 

@@ -38,10 +38,10 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       }`}
     >
       <span
-  className={`absolute top-[3px] left-[2px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-transform ${
-    checked ? "translate-x-[20px]" : "translate-x-0"
-  }`}
-/>
+        className={`absolute top-[3px] left-[2px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-transform ${
+          checked ? "translate-x-[20px]" : "translate-x-0"
+        }`}
+      />
     </button>
   );
 }
