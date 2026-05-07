@@ -46,12 +46,12 @@ export default function AdminLayoutShell({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <Topbar title={activeItem} />
-        <main className="p-4">{children}</main>
+        <main className="flex-1 p-4">{children}</main>
       </div>
     </div>
   );
