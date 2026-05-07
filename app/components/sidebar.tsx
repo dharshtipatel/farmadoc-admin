@@ -22,7 +22,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-[241px] h-screen bg-[#EBF2FF] flex flex-col">
+    <aside className="sticky top-0 h-screen w-[241px] shrink-0 bg-[#EBF2FF]">
       
       {/* Logo */}
       <div className="px-5 py-6">
@@ -37,7 +37,7 @@ export default function Sidebar() {
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+      <nav className="h-[calc(100vh-88px)] overflow-y-auto px-4 py-4 space-y-1">
         {menu.map((item) => {
 
           const isActive =
