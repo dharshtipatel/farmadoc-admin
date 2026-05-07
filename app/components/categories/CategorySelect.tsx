@@ -83,7 +83,7 @@ export default function CategorySelect({
                   onChange(option.value);
                   setOpen(false);
                 }}
-                className={`flex min-h-[48px] w-full items-center px-3 py-1 text-left text-[13px] transition-colors ${
+                className={`flex min-h-[48px] w-full items-center px-4 py-2 text-left text-[13px] transition-colors ${
                   isSelected
                     ? "bg-[#F2F4F8] text-[#21272A]"
                     : "text-[#21272A] hover:bg-[#F8FAFC]"

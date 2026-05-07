@@ -14,7 +14,7 @@ const menu = [
   { name: "Services Inventory", href: "/services", image: "/images/Services.svg" },
   { name: "Categories", href: "/categories", image: "/images/Categories.svg" },
   { name: "Offers & Pricing", href: "/offers", image: "/images/OffersPricing.svg" },
-  { name: "AI Chat Bot", href: "/transactions", image: "/images/Transactions.svg" },
+  { name: "AI Chat Bot", href: "/aichatbot", image: "/images/Transactions.svg" },
   { name: "Settings", href: "/settings", image: "/images/Settings.svg" },
 ];
 
