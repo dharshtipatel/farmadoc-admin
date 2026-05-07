@@ -1,18 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState, useMemo } from "react";
 import DataTable, { Column } from "../components/DataTable";
+import ExportDropdown from "../components/exportdropdown";
+import OrderDetailsDrawer from "../components/sellers/OrderDetailsDrawer";
+import CancelOrderModal from "../components/cancelorder";
+import StatsCard from "../components/statscard";
 
 type PaymentStatus = "Paid" | "Pending" | "Failed" | "Refunded";
-type OrderStatus = "Completed" | "Processing" | "Shipped" | "Delivered" | "Cancelled" | "Returned";
-
-function formatDisplayDate(dateString: string) {
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-}
+type OrderStatus = "Completed" | "Processing" | "Cancelled";
+type Stat = {
+  title: string;
+  value: string | number;
+  change: string;
+  isPositive: boolean;
+  icon: string;
+};
 
 interface OrderItem {
   id: string;
@@ -25,17 +28,8 @@ interface OrderItem {
 interface Order {
   orderId: string;
   items: OrderItem[];
-  user: {
-    name: string;
-    email: string;
-    phone: string;
-    avatar?: string;
-  };
-  seller: {
-    name: string;
-    location: string;
-    rating: number;
-  };
+  user: { name: string; email: string; phone: string; avatar?: string };
+  seller: { name: string; location: string; rating: number };
   amount: number;
   currency: string;
   date: string;
@@ -47,505 +41,149 @@ interface Order {
   notes?: string;
 }
 
-const orders: Order[] = [
+const ORDERS: Order[] = [
   {
-    orderId: "#FD65161516",
-    items: [
-      { id: "1", name: "Solar Labs Prot Crp Spf50+", image: "🧴", quantity: 1, price: 408.8 }
-    ],
-    user: {
-      name: "Mahavir Singh",
-      email: "mahavir.singh@email.com",
-      phone: "+91 98765 43210",
-      avatar: "MS",
-    },
-    seller: {
-      name: "Binu Pharmacy Milan",
-      location: "Milan, Italy",
-      rating: 4.8,
-    },
-    amount: 408.8,
-    currency: "EUR",
-    date: "2026-04-24",
-    payment: "Paid",
-    status: "Completed",
-    paymentMethod: "Credit Card",
-    shippingAddress: "Via Roma 123, Milan, Italy",
-    trackingNumber: "TRK123456789",
-    notes: "Handle with care - fragile items.",
+    orderId: "#FMD-24021211", items: [{ id: "1", name: "Solar Labs Prot Crp Spf50+", image: "🧴", quantity: 1, price: 408.80 }],
+    user: { name: "Mahavir Singh", email: "mahavir@email.com", phone: "+39 123 4567890", avatar: "MS" },
+    seller: { name: "Binu Pharmacy Milan", location: "Milan", rating: 4.8 },
+    amount: 408.80, currency: "EUR", date: "2026-04-24", payment: "Paid", status: "Completed",
+    paymentMethod: "Credit Card", shippingAddress: "Via Roma 123, Milan",
   },
   {
-    orderId: "#FD65161517",
-    items: [
-      { id: "2", name: "Hydra Boost Moisturizer 24h", image: "💧", quantity: 2, price: 256.12 }
-    ],
-    user: {
-      name: "Anjali Verma",
-      email: "anjali.verma@email.com",
-      phone: "+91 87654 32109",
-      avatar: "AV",
-    },
-    seller: {
-      name: "Crown Health Pharm",
-      location: "Rome, Italy",
-      rating: 4.6,
-    },
-    amount: 512.25,
-    currency: "EUR",
-    date: "2026-04-25",
-    payment: "Pending",
-    status: "Processing",
-    paymentMethod: "PayPal",
-    shippingAddress: "Piazza Navona 45, Rome, Italy",
+    orderId: "#FMD-24021212", items: [{ id: "2", name: "Hydra Boost Moisturizer 24h", image: "💧", quantity: 2, price: 256.12 }],
+    user: { name: "Anjali Verma", email: "anjali@email.com", phone: "+39 234 5678901", avatar: "AV" },
+    seller: { name: "Crown Health Pharm", location: "Rome", rating: 4.6 },
+    amount: 512.25, currency: "EUR", date: "2026-04-25", payment: "Pending", status: "Processing",
+    paymentMethod: "PayPal", shippingAddress: "Piazza Navona 45, Rome",
   },
   {
-    orderId: "#FD65161518",
-    items: [
-      { id: "3", name: "Revitalizing Eye Cream", image: "👁️", quantity: 1, price: 295.6 }
-    ],
-    user: {
-      name: "Rajesh Kumar",
-      email: "rajesh.kumar@email.com",
-      phone: "+91 76543 21098",
-      avatar: "RK",
-    },
-    seller: {
-      name: "Sunnydale Drugstore",
-      location: "Florence, Italy",
-      rating: 4.9,
-    },
-    amount: 295.6,
-    currency: "EUR",
-    date: "2026-04-26",
-    payment: "Paid",
-    status: "Shipped",
-    paymentMethod: "Bank Transfer",
-    shippingAddress: "Via dei Medici 78, Florence, Italy",
-    trackingNumber: "TRK987654321",
+    orderId: "#FMD-24021213", items: [{ id: "3", name: "Revitalizing Eye Cream", image: "👁️", quantity: 1, price: 295.60 }],
+    user: { name: "Rajesh Kumar", email: "rajesh@email.com", phone: "+39 345 6789012", avatar: "RK" },
+    seller: { name: "Sunnydale Drugstore", location: "Florence", rating: 4.9 },
+    amount: 295.60, currency: "EUR", date: "2026-04-26", payment: "Paid", status: "Completed",
+    paymentMethod: "Bank Transfer", shippingAddress: "Via dei Medici 78, Florence",
   },
   {
-    orderId: "#FD65161519",
-    items: [
-      { id: "4", name: "Night Repair Serum", image: "🌙", quantity: 1, price: 740.0 }
-    ],
-    user: {
-      name: "Sneha Patel",
-      email: "sneha.patel@email.com",
-      phone: "+91 65432 10987",
-      avatar: "SP",
-    },
-    seller: {
-      name: "Green Leaf Pharmac",
-      location: "Venice, Italy",
-      rating: 4.7,
-    },
-    amount: 740.0,
-    currency: "EUR",
-    date: "2026-04-27",
-    payment: "Paid",
-    status: "Cancelled",
-    paymentMethod: "Credit Card",
-    shippingAddress: "Canal Grande 156, Venice, Italy",
-    notes: "Customer requested cancellation.",
+    orderId: "#FMD-24021214", items: [{ id: "4", name: "Night Repair Serum", image: "🌙", quantity: 1, price: 740.00 }],
+    user: { name: "Sneha Patel", email: "sneha@email.com", phone: "+39 456 7890123", avatar: "SP" },
+    seller: { name: "Green Leaf Pharmacy", location: "Turin", rating: 4.7 },
+    amount: 740.00, currency: "EUR", date: "2026-04-27", payment: "Paid", status: "Cancelled",
+    paymentMethod: "Credit Card", shippingAddress: "Via Garibaldi 89, Turin",
+    notes: "Customer requested cancellation",
   },
   {
-    orderId: "#FD65161520",
-    items: [
-      { id: "5", name: "Gentle Exfoliating Scrub", image: "✨", quantity: 3, price: 116.82 }
-    ],
-    user: {
-      name: "Vikram Sharma",
-      email: "vikram.sharma@email.com",
-      phone: "+91 54321 09876",
-      avatar: "VS",
-    },
-    seller: {
-      name: "Wellness Pharmacy",
-      location: "Naples, Italy",
-      rating: 4.5,
-    },
-    amount: 350.45,
-    currency: "EUR",
-    date: "2026-04-28",
-    payment: "Paid",
-    status: "Processing",
-    paymentMethod: "Cash on Delivery",
-    shippingAddress: "Via Toledo 234, Naples, Italy",
+    orderId: "#FMD-24021215", items: [{ id: "5", name: "Gentle Exfoliating Scrub", image: "✨", quantity: 3, price: 116.82 }],
+    user: { name: "Vikram Sharma", email: "vikram@email.com", phone: "+39 567 8901234", avatar: "VS" },
+    seller: { name: "Wellness Pharmacy", location: "Naples", rating: 4.5 },
+    amount: 350.45, currency: "EUR", date: "2026-04-28", payment: "Paid", status: "Processing",
+    paymentMethod: "Cash on Delivery", shippingAddress: "Via Toledo 234, Naples",
   },
   {
-    orderId: "#FD65161521",
-    items: [
-      { id: "6", name: "Vitamin C Brightening Serum", image: "🍊", quantity: 1, price: 625.9 },
-      { id: "7", name: "Hydrating Face Mask", image: "🎭", quantity: 2, price: 45.0 }
-    ],
-    user: {
-      name: "Priya Gupta",
-      email: "priya.gupta@email.com",
-      phone: "+91 43210 98765",
-      avatar: "PG",
-    },
-    seller: {
-      name: "Metro Health Center",
-      location: "Turin, Italy",
-      rating: 4.8,
-    },
-    amount: 715.9,
-    currency: "EUR",
-    date: "2026-04-29",
-    payment: "Paid",
-    status: "Delivered",
-    paymentMethod: "Credit Card",
-    shippingAddress: "Via Garibaldi 89, Turin, Italy",
-    trackingNumber: "TRK456789123",
+    orderId: "#FMD-24021216", items: [{ id: "6", name: "Vitamin C Brightening Serum", image: "🍊", quantity: 1, price: 625.90 }],
+    user: { name: "Priya Gupta", email: "priya@email.com", phone: "+39 678 9012345", avatar: "PG" },
+    seller: { name: "Metro Health Center", location: "Bologna", rating: 4.8 },
+    amount: 625.90, currency: "EUR", date: "2026-04-29", payment: "Paid", status: "Completed",
+    paymentMethod: "Credit Card", shippingAddress: "Viale dei Mille 14, Bologna",
   },
   {
-    orderId: "#FD65161522",
-    items: [
-      { id: "8", name: "Anti-Aging Face Mask", image: "🎭", quantity: 1, price: 285.75 }
-    ],
-    user: {
-      name: "Amit Patel",
-      email: "amit.patel@email.com",
-      phone: "+91 32109 87654",
-      avatar: "AP",
-    },
-    seller: {
-      name: "City Wellness Store",
-      location: "Bologna, Italy",
-      rating: 4.6,
-    },
-    amount: 285.75,
-    currency: "EUR",
-    date: "2026-04-30",
-    payment: "Pending",
-    status: "Processing",
-    paymentMethod: "PayPal",
-    shippingAddress: "Via dell'Indipendenza 67, Bologna, Italy",
+    orderId: "#FMD-24021217", items: [{ id: "7", name: "Anti-Aging Face Mask", image: "🎭", quantity: 2, price: 142.87 }],
+    user: { name: "Amit Patel", email: "amit@email.com", phone: "+39 789 0123456", avatar: "AP" },
+    seller: { name: "City Wellness Store", location: "Siena", rating: 4.3 },
+    amount: 285.75, currency: "EUR", date: "2026-04-30", payment: "Pending", status: "Processing",
+    paymentMethod: "PayPal", shippingAddress: "Piazza del Campo 1, Siena",
   },
   {
-    orderId: "#FD65161523",
-    items: [
-      { id: "9", name: "Hydrating Body Lotion", image: "🧴", quantity: 4, price: 48.85 }
-    ],
-    user: {
-      name: "Kavita Sharma",
-      email: "kavita.sharma@email.com",
-      phone: "+91 21098 76543",
-      avatar: "KS",
-    },
-    seller: {
-      name: "Herbal Pharmacy Hub",
-      location: "Genoa, Italy",
-      rating: 4.7,
-    },
-    amount: 195.4,
-    currency: "EUR",
-    date: "2026-05-01",
-    payment: "Paid",
-    status: "Completed",
-    paymentMethod: "Bank Transfer",
-    shippingAddress: "Via XX Settembre 12, Genoa, Italy",
-    trackingNumber: "TRK789123456",
+    orderId: "#FMD-24021218", items: [{ id: "8", name: "Hydrating Body Lotion", image: "🧴", quantity: 1, price: 195.40 }],
+    user: { name: "Kavita Sharma", email: "kavita@email.com", phone: "+39 890 1234567", avatar: "KS" },
+    seller: { name: "Herbal Pharmacy Hub", location: "Modena", rating: 4.7 },
+    amount: 195.40, currency: "EUR", date: "2026-05-01", payment: "Paid", status: "Completed",
+    paymentMethod: "Credit Card", shippingAddress: "Via D'Azeglio 28, Modena",
   },
   {
-    orderId: "#FD65161524",
-    items: [
-      { id: "10", name: "Collagen Boost Supplement", image: "💊", quantity: 1, price: 890.25 }
-    ],
-    user: {
-      name: "Rohit Kumar",
-      email: "rohit.kumar@email.com",
-      phone: "+91 10987 65432",
-      avatar: "RK",
-    },
-    seller: {
-      name: "Vital Care Pharmacy",
-      location: "Palermo, Italy",
-      rating: 4.9,
-    },
-    amount: 890.25,
-    currency: "EUR",
-    date: "2026-05-02",
-    payment: "Paid",
-    status: "Shipped",
-    paymentMethod: "Credit Card",
-    shippingAddress: "Via Maqueda 45, Palermo, Italy",
-    trackingNumber: "TRK321654987",
+    orderId: "#FMD-24021219", items: [{ id: "9", name: "Collagen Boost Supplement", image: "💊", quantity: 1, price: 890.25 }],
+    user: { name: "Rohit Kumar", email: "rohit@email.com", phone: "+39 901 2345678", avatar: "RK" },
+    seller: { name: "Vital Care Pharmacy", location: "Palermo", rating: 4.6 },
+    amount: 890.25, currency: "EUR", date: "2026-05-02", payment: "Paid", status: "Completed",
+    paymentMethod: "Bank Transfer", shippingAddress: "Viale della Libertà 22, Palermo",
   },
   {
-    orderId: "#FD65161525",
-    items: [
-      { id: "11", name: "Natural Hair Oil", image: "🧴", quantity: 2, price: 72.9 }
-    ],
-    user: {
-      name: "Meera Singh",
-      email: "meera.singh@email.com",
-      phone: "+91 09876 54321",
-      avatar: "MS",
-    },
-    seller: {
-      name: "Organic Health Mart",
-      location: "Catania, Italy",
-      rating: 4.5,
-    },
-    amount: 145.8,
-    currency: "EUR",
-    date: "2026-05-03",
-    payment: "Paid",
-    status: "Returned",
-    paymentMethod: "PayPal",
-    shippingAddress: "Via Etnea 78, Catania, Italy",
-    notes: "Product returned due to quality issues.",
+    orderId: "#FMD-24021220", items: [{ id: "10", name: "Natural Hair Oil", image: "🌿", quantity: 2, price: 72.90 }],
+    user: { name: "Meera Singh", email: "meera@email.com", phone: "+39 012 3456789", avatar: "MS" },
+    seller: { name: "Organic Health Mart", location: "Catania", rating: 4.4 },
+    amount: 145.80, currency: "EUR", date: "2026-05-03", payment: "Paid", status: "Completed",
+    paymentMethod: "Credit Card", shippingAddress: "Via XX Settembre 75, Catania",
   },
 ];
 
+const statusColors: Record<OrderStatus, { text: string; dot: string }> = {
+  Completed:  { text: "#24A148", dot: "#24A148" },
+  Processing: { text: "#F59E0B", dot: "#F59E0B" },
+  Cancelled:  { text: "#DA1E28", dot: "#DA1E28" },
+};
+
 const paymentColors: Record<PaymentStatus, string> = {
-  Paid: "#24A148",
-  Pending: "#F1A817",
-  Failed: "#DA1E28",
+  Paid:     "#24A148",
+  Pending:  "#F59E0B",
+  Failed:   "#DA1E28",
   Refunded: "#8A3FFC",
 };
 
-const statusColors: Record<OrderStatus, string> = {
-  Completed: "#24A148",
-  Processing: "#0F62FE",
-  Shipped: "#1192E8",
-  Delivered: "#198038",
-  Cancelled: "#DA1E28",
-  Returned: "#FF832B",
-};
+type StatusFilter = "All" | OrderStatus;
 
-const statusDotColors: Record<OrderStatus, string> = {
-  Completed: "#24A148",
-  Processing: "#0F62FE",
-  Shipped: "#1192E8",
-  Delivered: "#198038",
-  Cancelled: "#DA1E28",
-  Returned: "#FF832B",
-};
+const STATUS_FILTERS: StatusFilter[] = ["All", "Completed", "Processing", "Cancelled"];
+const stats: Stat[] = [
+  { title: "Top Orders", value: 1240, change: "+8.2%", isPositive: true, icon: "/images/Orders.svg" },
+  { title: "Completed Orders", value: 320, change: "+5.1%", isPositive: true, icon: "/images/Orders.svg" },
+  { title: "In Processing", value: "$12,400", change: "+12.5%", isPositive: true, icon: "/images/Orders.svg" },
+  { title: "Cancelled Orders", value: 18, change: "-2.4%", isPositive: false, icon: "/images/Orders.svg" },
+  { title: "Order Revenue", value: 18, change: "-2.4%", isPositive: false, icon: "/images/revenue.svg" },
+];
 
-const paymentDotColors: Record<PaymentStatus, string> = {
-  Paid: "#24A148",
-  Pending: "#F1A817",
-  Failed: "#DA1E28",
-  Refunded: "#8A3FFC",
-};
+export default function OrdersManagement() {
+  const [orders, setOrders]             = useState<Order[]>(ORDERS);
+  const [openMenu, setOpenMenu]         = useState<string | null>(null);
+  const [viewOrder, setViewOrder]       = useState<Order | null>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
 
-const OrderDetailsModal = ({ order, isOpen, onClose }: { order: Order | null; isOpen: boolean; onClose: () => void }) => {
-  if (!isOpen || !order) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl rounded-3xl bg-white overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between p-6 border-b border-[#D6DADD]">
-          <div>
-            <h2 className="text-xl font-semibold text-black">Order Details</h2>
-            <p className="text-sm text-[#6B6F72]">{order.orderId}</p>
-          </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-[#6B6F72]">
-            ✕
-          </button>
-        </div>
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[80vh]">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Order Date</p>
-              <p className="text-sm text-[#21272A]">{formatDisplayDate(order.date)}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Payment Status</p>
-              <p className="text-sm font-semibold" style={{ color: paymentColors[order.payment] }}>{order.payment}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Order Status</p>
-              <p className="text-sm font-semibold" style={{ color: statusColors[order.status] }}>{order.status}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-3xl p-4">
-              <h3 className="text-sm font-medium text-[#21272A] mb-3">Customer</h3>
-              <p className="font-medium text-[#21272A]">{order.user.name}</p>
-              <p className="text-sm text-[#6B6F72]">{order.user.email}</p>
-              <p className="text-sm text-[#6B6F72]">{order.user.phone}</p>
-            </div>
-            <div className="bg-gray-50 rounded-3xl p-4">
-              <h3 className="text-sm font-medium text-[#21272A] mb-3">Shipping</h3>
-              <p className="text-sm text-[#6B6F72]">{order.shippingAddress}</p>
-              {order.trackingNumber && <p className="text-sm text-[#21272A] mt-2">Tracking: {order.trackingNumber}</p>}
-            </div>
-          </div>
-          <div className="bg-gray-50 rounded-3xl p-4">
-            <h3 className="text-sm font-medium text-[#21272A] mb-3">Items</h3>
-            <div className="space-y-3">
-              {order.items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between bg-white rounded-2xl p-3 border border-[#E6E8EB]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-blue-50 flex items-center justify-center text-xl">{item.image}</div>
-                    <div>
-                      <p className="font-medium text-[#21272A]">{item.name}</p>
-                      <p className="text-xs text-[#6B6F72]">Qty {item.quantity}</p>
-                    </div>
-                  </div>
-                  <p className="font-medium text-[#21272A]">€{item.price.toFixed(2)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-3xl p-4">
-              <h3 className="text-sm font-medium text-[#21272A] mb-3">Seller</h3>
-              <p className="font-medium text-[#21272A]">{order.seller.name}</p>
-              <p className="text-sm text-[#6B6F72]">{order.seller.location}</p>
-              <p className="text-sm text-[#6B6F72]">Rating: {order.seller.rating}</p>
-            </div>
-            <div className="bg-gray-50 rounded-3xl p-4">
-              <h3 className="text-sm font-medium text-[#21272A] mb-3">Payment</h3>
-              <p className="text-sm text-[#21272A]">Method: {order.paymentMethod}</p>
-              <p className="text-sm text-[#6B6F72]">Total: €{order.amount.toFixed(2)}</p>
-            </div>
-          </div>
-          {order.notes && (
-            <div className="bg-yellow-50 rounded-3xl p-4 border border-yellow-200">
-              <h3 className="text-sm font-medium text-[#21272A] mb-2">Notes</h3>
-              <p className="text-sm text-[#21272A]">{order.notes}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const DateRangeFilter = ({
-  startDate,
-  endDate,
-  onStartDateChange,
-  onEndDateChange,
-}: {
-  startDate: string;
-  endDate: string;
-  onStartDateChange: (date: string) => void;
-  onEndDateChange: (date: string) => void;
-}) => (
-  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-    <input
-      type="date"
-      value={startDate}
-      onChange={(e) => onStartDateChange(e.target.value)}
-      className="w-full sm:w-auto px-3 py-2 text-sm border border-[#D6DADD] rounded-lg outline-none focus:border-[#1192E8]"
-    />
-    <span className="text-[#6B6F72]">to</span>
-    <input
-      type="date"
-      value={endDate}
-      onChange={(e) => onEndDateChange(e.target.value)}
-      className="w-full sm:w-auto px-3 py-2 text-sm border border-[#D6DADD] rounded-lg outline-none focus:border-[#1192E8]"
-    />
-  </div>
-);
-
-const StatusFilter = ({
-  selectedStatuses,
-  onStatusChange,
-}: {
-  selectedStatuses: OrderStatus[];
-  onStatusChange: (statuses: OrderStatus[]) => void;
-}) => {
-  const statuses: OrderStatus[] = ["Completed", "Processing", "Shipped", "Delivered", "Cancelled", "Returned"];
-
-  const toggleStatus = (status: OrderStatus) => {
-    if (selectedStatuses.includes(status)) {
-      onStatusChange(selectedStatuses.filter((s) => s !== status));
-    } else {
-      onStatusChange([...selectedStatuses, status]);
-    }
-  };
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {statuses.map((status) => {
-        const active = selectedStatuses.includes(status);
-        return (
-          <button
-            key={status}
-            onClick={() => toggleStatus(status)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-              active ? "text-white" : "text-[#6B6F72] border border-[#D6DADD] bg-white hover:bg-gray-50"
-            }`}
-            style={{
-              backgroundColor: active ? statusColors[status] : "transparent",
-            }}
-          >
-            {status}
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
-export default function OrderHistoryPage() {
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([]);
-  const [selectedPaymentStatuses, setSelectedPaymentStatuses] = useState<PaymentStatus[]>([]);
-
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const orderDate = new Date(order.date);
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate ? new Date(endDate) : null;
-      const dateMatch = (!start || orderDate >= start) && (!end || orderDate <= end);
-      const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(order.status);
-      const paymentMatch = selectedPaymentStatuses.length === 0 || selectedPaymentStatuses.includes(order.payment);
-      return dateMatch && statusMatch && paymentMatch;
-    });
-  }, [startDate, endDate, selectedStatuses, selectedPaymentStatuses]);
-
-  const stats = useMemo(() => {
-    const totalOrders = filteredOrders.length;
-    const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.amount, 0);
-    const completedOrders = filteredOrders.filter((order) => order.status === "Completed").length;
-    const pendingPayments = filteredOrders.filter((order) => order.payment === "Pending").length;
-    return { totalOrders, totalRevenue, completedOrders, pendingPayments };
-  }, [filteredOrders]);
+  const displayOrders = useMemo(() => {
+    return statusFilter === "All" ? orders : orders.filter((o) => o.status === statusFilter);
+  }, [orders, statusFilter]);
 
   const columns: Column<Order>[] = [
     {
       key: "orderId",
       label: "Order ID",
       sortable: true,
-      render: (value) => <span className="text-[#1192E8] font-medium text-[14px]">{value}</span>,
+      render: (value) => (
+        <span className="text-[#1192E8] font-medium text-[13px]">{value}</span>
+      ),
     },
     {
       key: "items",
       label: "Items",
-      sortable: false,
       render: (_, order) => (
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center text-lg">
+          <div className="w-[44px] h-[44px] rounded-lg bg-gradient-to-br from-orange-50 to-red-100 flex items-center justify-center text-base flex-shrink-0">
             {order.items[0]?.image}
           </div>
           <div>
-            <p className="text-[#21272A] text-sm font-medium">{order.items[0]?.name}</p>
-            {order.items.length > 1 && <p className="text-xs text-[#6B6F72]">+{order.items.length - 1} more</p>}
+            <p className="text-[13px] text-[#6B6F72] line-clamp-1 max-w-[140px]">{order.items[0]?.name}</p>
+            {order.items.length > 1 && (
+              <span className="text-[11px] text-[#A8AAAC]">+{order.items.length - 1} more</span>
+            )}
           </div>
         </div>
       ),
-      width: "220px",
+      width: "200px",
     },
     {
       key: "user",
-      label: "Customer",
+      label: "User",
       sortable: true,
       render: (_, order) => (
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-semibold">
-            {order.user.avatar || order.user.name.split(" ").map((part) => part[0]).join("")}
-          </div>
-          <span className="text-[#1192E8] text-sm">{order.user.name}</span>
+          <span className="text-[13px] text-[#1192E8]">{order.user.name}</span>
         </div>
       ),
     },
@@ -554,42 +192,36 @@ export default function OrderHistoryPage() {
       label: "Seller",
       sortable: true,
       render: (_, order) => (
-        <div>
-          <p className="text-[#1192E8] text-sm font-medium">{order.seller.name}</p>
-          <p className="text-xs text-[#6B6F72]">{order.seller.location}</p>
-        </div>
+        <span className="text-[13px] text-[#1192E8]">{order.seller.name}</span>
       ),
     },
     {
       key: "amount",
       label: "Amount",
       sortable: true,
-      render: (_, order) => <span className="text-[#21272A] font-medium text-sm">€{order.amount.toFixed(2)}</span>,
+      render: (_, order) => (
+        <span className="text-[13px] font-medium text-[#6B6F72]">€{order.amount.toFixed(2)}</span>
+      ),
     },
     {
       key: "date",
       label: "Date",
       sortable: true,
-      render: (value) => <span className="text-[#6B6F72] text-sm">{formatDisplayDate(value as string)}</span>,
+      render: (value) => (
+        <span className="text-[13px] text-[#6B6F72]">
+          {new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
+        </span>
+      ),
     },
     {
       key: "payment",
       label: "Payment",
       sortable: true,
       render: (value: PaymentStatus) => (
-        <div className="flex items-center gap-2">
-          <span
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              backgroundColor: paymentDotColors[value],
-              display: "inline-block",
-            }}
-          />
-          <span className="text-sm font-medium" style={{ color: paymentColors[value] }}>
-            {value}
-          </span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: paymentColors[value] }} />
+          <span className="text-[13px] font-medium" style={{ color: paymentColors[value] }}>{value}</span>
         </div>
       ),
     },
@@ -598,205 +230,144 @@ export default function OrderHistoryPage() {
       label: "Status",
       sortable: true,
       render: (value: OrderStatus) => (
-        <div className="flex items-center gap-2">
-          <span
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              backgroundColor: statusDotColors[value],
-              display: "inline-block",
-            }}
-          />
-          <span className="text-sm font-medium" style={{ color: statusColors[value] }}>
-            {value}
-          </span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: statusColors[value].dot }} />
+          <span className="text-[13px] font-medium" style={{ color: statusColors[value].text }}>{value}</span>
         </div>
       ),
     },
   ];
 
-  const handleViewDetails = (order: Order) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
-  };
-
-  const exportOrders = () => {
-    const csvRows = [
-      ["Order ID", "Customer", "Seller", "Amount", "Date", "Payment", "Status"],
-      ...filteredOrders.map((order) => [
-        order.orderId,
-        order.user.name,
-        order.seller.name,
-        order.amount.toFixed(2),
-        order.date,
-        order.payment,
-        order.status,
-      ]),
-    ];
-
-    const csvContent = csvRows.map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `orders-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="w-full font-inter">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+      {/* Page Title */}
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-[20px] font-semibold text-black">Order History</h1>
-          <p className="text-sm text-[#6B6F72] mt-1">Orders table, filters, and actions for Dell'Orso Pharmacy.</p>
-        </div>
-        <button
-          type="button"
-          onClick={exportOrders}
-          className="inline-flex items-center justify-center rounded-xl bg-[#1192E8] px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
-        >
-          Export CSV
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="rounded-3xl border border-[#D6DADD] bg-white p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Total Orders</p>
-          <p className="text-2xl font-semibold text-black">{stats.totalOrders}</p>
-        </div>
-        <div className="rounded-3xl border border-[#D6DADD] bg-white p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Total Revenue</p>
-          <p className="text-2xl font-semibold text-black">€{stats.totalRevenue.toFixed(2)}</p>
-        </div>
-        <div className="rounded-3xl border border-[#D6DADD] bg-white p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Completed Orders</p>
-          <p className="text-2xl font-semibold text-black">{stats.completedOrders}</p>
-        </div>
-        <div className="rounded-3xl border border-[#D6DADD] bg-white p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Pending Payments</p>
-          <p className="text-2xl font-semibold text-black">{stats.pendingPayments}</p>
+          <h1 className="text-[18px] font-semibold text-black">Orders Management</h1>
+          <p className="text-[12px] font-medium text-[#6B6F72] mt-1">Track, manage, and process all pharmacy orders across the platform in real time.</p>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-[#D6DADD] bg-white p-6 mb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 flex-1">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Date Range</p>
-              <DateRangeFilter
-                startDate={startDate}
-                endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
-              />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Order Status</p>
-              <StatusFilter selectedStatuses={selectedStatuses} onStatusChange={setSelectedStatuses} />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[#6B6F72] mb-2">Payment Status</p>
-              <div className="flex flex-wrap gap-2">
-                {(["Paid", "Pending", "Failed", "Refunded"] as PaymentStatus[]).map((status) => {
-                  const active = selectedPaymentStatuses.includes(status);
-                  return (
-                    <button
-                      key={status}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPaymentStatuses((prev) =>
-                          prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]
-                        );
-                      }}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        active ? "text-white" : "text-[#6B6F72] border border-[#D6DADD] bg-white hover:bg-gray-50"
-                      }`}
-                      style={{ backgroundColor: active ? paymentColors[status] : "transparent" }}
-                    >
-                      {status}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          {(startDate || endDate || selectedStatuses.length > 0 || selectedPaymentStatuses.length > 0) && (
-            <button
-              type="button"
-              onClick={() => {
-                setStartDate("");
-                setEndDate("");
-                setSelectedStatuses([]);
-                setSelectedPaymentStatuses([]);
-              }}
-              className="text-sm font-medium text-[#1192E8] hover:underline"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
+      <div className="mt-6 mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        {stats.map((stat, index) => (
+          <StatsCard
+            key={index}
+            title={stat.title}
+            value={stat.value}
+            change={stat.change}
+            isPositive={stat.isPositive}
+            icon={stat.icon}
+            showChange={false}
+          />
+        ))}
       </div>
 
       <DataTable<Order>
         columns={columns}
-        data={filteredOrders}
-        rowKey={(order) => order.orderId}
-        searchFields={["orderId"]}
-        searchPlaceholder="Search orders..."
-        onRowClick={handleViewDetails}
-        onBulkAction={(action, selectedIds) => console.log(action, selectedIds)}
-        bulkActions={[
-          { label: "Mark as Completed", value: "complete", icon: "✅" },
-          { label: "Mark as Shipped", value: "ship", icon: "🚚" },
-          { label: "Cancel Orders", value: "cancel", icon: "❌", color: "text-red-600" },
-          { label: "Export Selected", value: "export", icon: "📊" },
-        ]}
-        renderBulkActionBar={(selectedCount, onClear) => (
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 py-3 border-b border-[#D6DADD] bg-[#F8FAFF]">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-[#21272A]">{selectedCount} order{selectedCount !== 1 ? "s" : ""} selected</span>
+        data={displayOrders}
+        rowKey={(o) => o.orderId}
+        searchPlaceholder="Search here..."
+        showCheckboxes={true}
+        onRowClick={(order) => setViewOrder(order)}
+        toolbarRight={
+          <div className="flex items-center gap-2">
+            {/* Status filter pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors whitespace-nowrap border ${
+                    statusFilter === f
+                      ? "border-[#1192E8] text-[#1192E8] bg-white"
+                      : "border-[#D6DADD] text-[#6B6F72] bg-white hover:border-[#1192E8] hover:text-[#1192E8]"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            <ExportDropdown />
+          </div>
+        }
+        renderBulkActionBar={(selectedCount, clearSelection) => (
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#D6DADD] bg-[#F8FAFF]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-[#1192E8] flex items-center justify-center flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24"
+                  fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <span className="text-[13px] font-medium text-[#21272A]">
+                {String(selectedCount).padStart(2, "0")} Selection{selectedCount > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                type="button"
-                onClick={() => console.log("Mark completed")}
-                className="rounded-full bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700"
+                onClick={() => setCancelOrderId("bulk")}
+                className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[#DA1E28] border border-[#DA1E28] rounded-lg hover:bg-red-50 transition-colors bg-white"
               >
-                Mark Completed
+                Cancel Selection
               </button>
+              <ExportDropdown />
               <button
-                type="button"
-                onClick={() => console.log("Mark shipped")}
-                className="rounded-full bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                onClick={clearSelection}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#6B6F72] transition-colors"
               >
-                Mark Shipped
-              </button>
-              <button
-                type="button"
-                onClick={() => console.log("Cancel orders")}
-                className="rounded-full bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
-              >
-                Cancel Orders
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
               </button>
             </div>
-            <button
-              type="button"
-              onClick={onClear}
-              className="w-9 h-9 rounded-full border border-[#D6DADD] text-[#6B6F72] hover:bg-gray-100"
-            >
-              ✕
-            </button>
           </div>
         )}
         renderRowActions={(order) => (
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
-              type="button"
-              onClick={() => setSelectedOrder(order)}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-[#6B6F72]"
+              onClick={() => setOpenMenu(openMenu === order.orderId ? null : order.orderId)}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#6B6F72] transition-colors text-lg"
             >
               ⋮
             </button>
+            {openMenu === order.orderId && (
+              <div className="absolute right-0 top-8 z-20 bg-white border border-[#D6DADD] rounded-xl shadow-lg py-1.5 min-w-[160px]">
+
+                <button
+                  onClick={() => { setOpenMenu(null); setViewOrder(order); }}
+                  className="w-full text-left px-4 py-2.5 text-[13px] text-[#21272A] hover:bg-gray-50 transition-colors flex items-center gap-2.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                    fill="none" stroke="#6B6F72" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  View Details
+                </button>
+
+                {order.status !== "Cancelled" && order.status !== "Completed" && (
+                  <>
+                    <div className="mx-3 border-t border-[#F0F2F4]" />
+                    <button
+                      onClick={() => { setOpenMenu(null); setCancelOrderId(order.orderId); }}
+                      className="w-full text-left px-4 py-2.5 text-[13px] text-[#DA1E28] hover:bg-red-50 transition-colors flex items-center gap-2.5"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                        fill="none" stroke="#DA1E28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                      </svg>
+                      Cancel Order
+                    </button>
+                  </>
+                )}
+
+              </div>
+            )}
           </div>
         )}
         customFilter={(order, query) => {
@@ -804,19 +375,39 @@ export default function OrderHistoryPage() {
           return (
             order.orderId.toLowerCase().includes(q) ||
             order.user.name.toLowerCase().includes(q) ||
-            order.user.email.toLowerCase().includes(q) ||
             order.seller.name.toLowerCase().includes(q) ||
-            order.items.some((item) => item.name.toLowerCase().includes(q))
+            order.items.some((i) => i.name.toLowerCase().includes(q))
           );
         }}
       />
 
-      <OrderDetailsModal
-        order={selectedOrder}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedOrder(null);
+      {/* Order Details Drawer */}
+      <OrderDetailsDrawer
+        order={viewOrder}
+        isOpen={viewOrder !== null}
+        onClose={() => setViewOrder(null)}
+        onCancelOrder={(orderId) => {
+          setViewOrder(null);
+          setCancelOrderId(orderId);
+        }}
+      />
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        open={cancelOrderId !== null}
+        orderId={cancelOrderId ?? ""}
+        onClose={() => setCancelOrderId(null)}
+        onConfirm={(reasons, note) => {
+          if (cancelOrderId && cancelOrderId !== "bulk") {
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.orderId === cancelOrderId
+                  ? { ...o, status: "Cancelled", notes: note }
+                  : o
+              )
+            );
+          }
+          setCancelOrderId(null);
         }}
       />
     </div>

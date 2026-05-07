@@ -330,6 +330,7 @@ export default function ProductsTab({ seller }: { seller: { shortName: string; n
       />
 
       <ProductDetailsDrawer
+        key={`seller-${viewProduct?.sku ?? "empty"}`}
         product={viewProduct}
         isOpen={viewProduct !== null}
         onClose={() => setViewProduct(null)}

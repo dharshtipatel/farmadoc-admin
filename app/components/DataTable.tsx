@@ -6,8 +6,10 @@ export interface Column<T> {
   key: string;
   label: string;
   sortable?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   render?: (value: any, row: T) => ReactNode;
   width?: string;
+  onSelectionChange?: (selected: Set<string | number>) => void;
 }
 
 export interface DataTableProps<T> {
@@ -27,6 +29,8 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   customFilter?: (row: T, query: string) => boolean;
   toolbarRight?: ReactNode;
+  hideSearch?: boolean;
+  hidePagination?: boolean;
 }
 
 type SortKey = string | null;
@@ -79,6 +83,8 @@ export default function DataTable<T>({
   onRowClick,
   customFilter,
   toolbarRight,
+  hideSearch = false,
+  hidePagination = false,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>(null);
@@ -87,7 +93,6 @@ export default function DataTable<T>({
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [pageSizeInput, setPageSizeInput] = useState(String(initialPageSize));
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
-  const [openMenu, setOpenMenu] = useState<string | number | null>(null);
   const [actionOpen, setActionOpen] = useState(false);
   const actionRef = useRef<HTMLDivElement>(null);
 
@@ -146,7 +151,9 @@ export default function DataTable<T>({
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageData = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pageData = hidePagination
+    ? filtered
+    : filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const pageIds = pageData.map((row) => rowKey(row));
 
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
@@ -164,7 +171,8 @@ export default function DataTable<T>({
   const toggleRow = (id: string | number) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -181,8 +189,10 @@ export default function DataTable<T>({
     return pages;
   };
 
+  const showDefaultToolbar = !hideSearch || !!toolbarRight;
+
   return (
-    <div className="w-full font-inter" onClick={() => setOpenMenu(null)}>
+    <div className="w-full font-inter">
       <div className="bg-white border border-[#D6DADD] rounded-2xl overflow-hidden">
         {/* ── Toolbar ── */}
         {selected.size > 0 ? (
@@ -289,38 +299,42 @@ export default function DataTable<T>({
               </div>
             </div>
           )
-        ) : (
+        ) : showDefaultToolbar ? (
           /* Normal Search Bar */
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#D6DADD] gap-4">
-            <div className="relative w-56">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8AAAC]"
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                  setSelected(new Set());
-                  onSearch?.(e.target.value);
-                }}
-                className="w-full pl-9 pr-3 py-2 text-[13px] border border-[#D6DADD] rounded-lg outline-none focus:border-[#1192E8] text-[#21272A] placeholder-[#A8AAAC] bg-white"
-              />
-            </div>
+            {hideSearch ? (
+              <div />
+            ) : (
+              <div className="relative w-56">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8AAAC]"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder={searchPlaceholder}
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                    setSelected(new Set());
+                    onSearch?.(e.target.value);
+                  }}
+                  className="w-full pl-9 pr-3 py-2 text-[13px] border border-[#D6DADD] rounded-lg outline-none focus:border-[#1192E8] text-[#21272A] placeholder-[#A8AAAC] bg-white"
+                />
+              </div>
+            )}
             {/* 👇 only renders when passed, zero impact on other pages */}
             {toolbarRight && (
               <div className="flex items-center gap-2">
@@ -328,7 +342,7 @@ export default function DataTable<T>({
               </div>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* ── Table ── */}
         <div className="overflow-x-auto">
@@ -336,12 +350,14 @@ export default function DataTable<T>({
             <thead>
               <tr className="border-b border-[#D6DADD]" style={{ backgroundColor: headerBackground }}>
                 {showCheckboxes && (
-                  <th className="w-11 px-4 py-3">
-                    <IndeterminateCheckbox
-                      checked={allPageSelected}
-                      indeterminate={!allPageSelected && somePageSelected}
-                      onChange={toggleAll}
-                    />
+                  <th className="w-11 px-4 py-3 align-middle">
+                    <div className="flex items-center justify-center">
+                      <IndeterminateCheckbox
+                        checked={allPageSelected}
+                        indeterminate={!allPageSelected && somePageSelected}
+                        onChange={toggleAll}
+                      />
+                    </div>
                   </th>
                 )}
                 {columns.map((col) => (
@@ -376,13 +392,15 @@ export default function DataTable<T>({
                     } ${onRowClick ? "cursor-pointer" : ""}`}
                   >
                     {showCheckboxes && (
-                      <td className="px-4 py-3 w-11" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selected.has(rowId)}
-                          onChange={() => toggleRow(rowId)}
-                          className="w-[15px] h-[15px] cursor-pointer accent-blue-500"
-                        />
+                      <td className="px-4 py-3 w-11 align-middle" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(rowId)}
+                            onChange={() => toggleRow(rowId)}
+                            className="w-[15px] h-[15px] cursor-pointer accent-blue-500"
+                          />
+                        </div>
                       </td>
                     )}
                     {columns.map((col) => (
@@ -403,7 +421,8 @@ export default function DataTable<T>({
         </div>
 
         {/* ── Pagination ── */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-[#D6DADD] flex-wrap gap-3">
+        {!hidePagination && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-[#D6DADD] flex-wrap gap-3">
           <div className="flex items-center gap-2 text-[12px] text-[#6B6F72]">
             <span>Page Entries</span>
             <div className="flex items-center border border-[#D6DADD] rounded-lg overflow-hidden">
@@ -500,7 +519,8 @@ export default function DataTable<T>({
               ›
             </button>
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
