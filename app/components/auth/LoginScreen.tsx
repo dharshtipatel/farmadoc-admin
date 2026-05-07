@@ -54,10 +54,10 @@ export default function LoginScreen() {
       />
 
       <div
-        className="relative z-10 box-border rounded-xl bg-white px-12 py-10 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
+        className="relative z-10 box-border rounded-xl bg-white py-10 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
         style={{ width: "572px", minWidth: "572px", minHeight: "422px" }}
       >
-        <div className="mx-auto flex min-h-[342px] max-w-[360px] flex-col px-4">
+        <div className="mx-auto flex min-h-[342px] max-w-[476px] flex-col">
           <Image
             src="/images/Logo.png"
             alt="FarmaDoc"
