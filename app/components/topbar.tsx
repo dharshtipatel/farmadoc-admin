@@ -147,6 +147,10 @@ export default function Topbar({ title }: { title: ReactNode }) {
             </button>
             <button
               type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                router.push("/login");
+              }}
               className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-[#6B6F72] transition-colors hover:bg-[#F8FAFC]"
             >
               <LogoutIcon />

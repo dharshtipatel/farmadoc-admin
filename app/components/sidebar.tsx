@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 
 const menu = [
-  { name: "Dashboard", href: "/", image: "/images/Dashboard.svg" },
+  { name: "Dashboard", href: "/dashboard", image: "/images/Dashboard.svg" },
   { name: "Users", href: "/users", image: "/images/Users.svg" },
   { name: "Sellers", href: "/sellers", image: "/images/Sellers.svg" },
   { name: "Pharmacies Req", href: "/pharmacy-requests", image: "/images/PharmaciesReq.svg", badge: true },

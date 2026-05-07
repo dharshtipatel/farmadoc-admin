@@ -7,7 +7,7 @@ import Topbar from "./components/topbar";
 import BreadcrumbNav from "./components/breadcrumb-nav";
 
 const menu = [
-  { name: "Dashboard", href: "/" },
+  { name: "Dashboard", href: "/dashboard" },
   { name: "Users", href: "/users" },
   { name: "Sellers", href: "/sellers" },
   { name: "Pharmacies Req", href: "/pharmacy-requests" },
@@ -27,6 +27,7 @@ export default function AdminLayoutShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isAuthPage = pathname === "/" || pathname === "/login";
 
   const activeMenu =
     menu.find(
@@ -39,6 +40,10 @@ export default function AdminLayoutShell({
     pathname.startsWith("/users/") && pathname !== "/users"
       ? <Suspense fallback={<span className="flex items-center gap-2 text-[12px] font-medium font-inter"><span className="text-[#6B6F72]">Users</span></span>}><BreadcrumbNav /></Suspense>
       : activeMenu;
+
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex min-h-screen">
